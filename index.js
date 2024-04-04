@@ -1,12 +1,42 @@
+require('dotenv').config();
 const express = require('express');
 const morgan = require('morgan');
 const cors = require('cors');
+const Note = require('./models/note');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static('dist'));
+
+const mongoose = require('mongoose');
+
+if (process.argv.length < 3) {
+    console.log('Give a password as argument');
+    process.exit(1);
+}
+
+const password = process.argv[2];
+const url = `mongodb+srv://fullsatck:${password}@cluster0.kpfeqpu.mongodb.net/noteApp?retryWrites=true&w=majority&appName=Cluster0`;
+
+mongoose.set('strictQuery', false);
+mongoose.connect(url);
+
+const noteSchema = new mongoose.Schema({
+    content: String,
+    important: Boolean,
+});
+
+noteSchema.set('toJSON', {
+    transform: (document, returnedObject) => {
+        returnedObject.id = returnedObject._id.toString();
+        delete returnedObject._id;
+        delete returnedObject.__v;
+    }
+});
+
+const Note = mongoose.model('Note', noteSchema);
 
 const requestLogger = (request, response, next) => {
     console.log('Method: ', request.method);
@@ -52,7 +82,7 @@ app.get('/', (request, response) => {
 });
 
 app.get('/api/notes', (request, response) => {
-    response.json(notes);
+    Note.find({}).then(notes => response.json(notes));
 });
 
 app.get('/api/notes/:id', (request, response) => {
@@ -89,7 +119,7 @@ app.post('/api/notes', (request, response) => {
     response.json(note);
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
